@@ -14,8 +14,9 @@ register_form = face_rec.RegisterationForm()
 # 1. Collect Person name and role
 # form
 person_name = st.text_input(label="Name", placeholder="First Name and Last Name")
+employee_id = st.text_input(label="Employee ID", placeholder="Enter your employee ID")
 # role = st.selectbox(label="Select Your Role", options=('Employee', 'Admin'))
-role = 'Employee'
+#role = 'Employee'
 
 # 2. Collect facial embedding of person
 def video_callback_function(frame):
@@ -34,7 +35,7 @@ webrtc_streamer(key="registeration", video_frame_callback=video_callback_functio
 # 3. Save the data in Redis DB
 
 if st.button('Submit'):
-   return_value = register_form.save_data_in_redis_db(person_name, role)
+   return_value = register_form.save_data_in_redis_db(person_name, employee_id)
    if return_value == True:
        st.success(f'{person_name} Registered Successfully')
    elif return_value == 'name_false':

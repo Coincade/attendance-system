@@ -20,7 +20,7 @@ with tab1:
         # Retreive the data from Redis DB
         with st.spinner("Retrieving Data from Redis DB.."):
             redis_face_db = face_rec.retrieve_data('academy:register')
-            st.dataframe(redis_face_db[['Name', 'Role']])
+            st.dataframe(redis_face_db[['Name', 'Employee_id']])
 
 with tab2:
     if st.button('Refresh Logs'):
