@@ -1,5 +1,6 @@
 insightface_models/
 myenv/
+empenv/
 face_embedding.txt
 __pycache__/
 .env

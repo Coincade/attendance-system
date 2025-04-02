@@ -33,7 +33,7 @@ def video_frame_callback(frame):
     pred_img = realtime_pred.face_prediction(
         img,redis_face_db,
         feature_column='facial_features',
-        name_role=['Name','Role'],
+        name_role=['Name','Employee_id'],
         thresh=0.5
         )
     

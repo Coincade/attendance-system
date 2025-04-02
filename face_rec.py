@@ -33,8 +33,8 @@ def retrieve_data(db_name):
     retrieve_series.index = index
     retrieve_df = retrieve_series.to_frame().reset_index()
     retrieve_df.columns = ['name_role', 'facial_features']
-    retrieve_df[['Name', 'Role']] = retrieve_df['name_role'].apply(lambda x: x.split("@")).apply(pd.Series)
-    return retrieve_df[['Name','Role','facial_features']]
+    retrieve_df[['Name', 'Employee_id']] = retrieve_df['name_role'].apply(lambda x: x.split("@")).apply(pd.Series)
+    return retrieve_df[['Name','Employee_id','facial_features']]
 
 # configure face analysis
 faceapp = FaceAnalysis(name='buffalo_sc',root='insightface_models', providers = ['CPUExecutionProvider'])
@@ -100,7 +100,7 @@ class RealTimePred:
         self.reset_dict()
 
     def face_prediction(self,test_image, dataframe,feature_column,
-                            name_role=['Name','Role'],thresh=0.5):
+                            name_role=['Name','Employee_id'],thresh=0.5):
         
         #step 0: get the current date and time
         current_time = str(datetime.now())
@@ -159,35 +159,36 @@ class RegisterationForm:
             embeddings = res['embedding']
         return frame,embeddings
     
-    def save_data_in_redis_db(self, name, role):
-        if name is not None:
-            if name.strip() != '':
-                key = f"{name}@{role}"
+    def save_data_in_redis_db(self, name, employee_id):
+            if name is not None:
+                if name.strip() != '':
+                    key = f"{name}@{employee_id}"
+                else:
+                    return 'name_false'
             else:
                 return 'name_false'
-        else:
-            return 'name_false'
-        
-        # if face_embedding.txt exists
-        if 'face_embedding.txt' not in os.listdir():
-            return 'file_false'
 
-        # Step 1: Load the embedding file
-        x_array = np.loadtxt('face_embedding.txt', dtype=np.float32) # flattened array
 
-        # Step 2: Convert into array proper shape
-        received_samples = int(x_array.size/512)
-        x_array = x_array.reshape(received_samples,512)
-        x_array = np.asarray(x_array)
+            # if face_embedding.txt exists
+            if 'face_embedding.txt' not in os.listdir():
+                return 'file_false'
 
-        # Step 3: Calculate the mean of the embedding
-        x_mean = x_array.mean(axis=0)
-        # x_mean = x_mean.astype(np.float32)
-        x_mean_bytes = x_mean.tobytes()
+            # Step 1: Load the embedding file
+            x_array = np.loadtxt('face_embedding.txt', dtype=np.float32) # flattened array
 
-        # Step 4: Push data to redis db
-        r.hset('academy:register',key=key, value=x_mean_bytes)
+            # Step 2: Convert into array proper shape
+            received_samples = int(x_array.size/512)
+            x_array = x_array.reshape(received_samples,512)
+            x_array = np.asarray(x_array)
 
-        os.remove('face_embedding.txt')
-        self.reset()
-        return True
+            # Step 3: Calculate the mean of the embedding
+            x_mean = x_array.mean(axis=0)
+            # x_mean = x_mean.astype(np.float32)
+            x_mean_bytes = x_mean.tobytes()
+
+            # Step 4: Push data to redis db
+            r.hset('academy:register',key=key, value=x_mean_bytes)
+
+            os.remove('face_embedding.txt')
+            self.reset()
+            return True
