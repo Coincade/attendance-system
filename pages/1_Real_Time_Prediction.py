@@ -1,8 +1,7 @@
 import streamlit as st
-from Home import face_rec
-
 from streamlit_webrtc import webrtc_streamer
 import av
+from Home import face_rec
 import time
 
 st.set_page_config(page_title="Predictions",layout="centered")
@@ -33,7 +32,7 @@ def video_frame_callback(frame):
     pred_img = realtime_pred.face_prediction(
         img,redis_face_db,
         feature_column='facial_features',
-        name_role=['Name','Role'],
+        name_role=['Name','Employee_id'],
         thresh=0.5
         )
     
@@ -48,7 +47,14 @@ def video_frame_callback(frame):
 
     return av.VideoFrame.from_ndarray(pred_img, format="bgr24")
 
-webrtc_streamer(key="realtimePrediction",video_frame_callback=video_frame_callback)
+webrtc_streamer(
+    key="realtimePrediction",
+    video_frame_callback=video_frame_callback,
+    frontend_rtc_configuration={
+        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+    },
+    media_stream_constraints={"video": True, "audio": False}
+)
 
 
 
