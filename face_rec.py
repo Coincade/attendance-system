@@ -9,6 +9,8 @@ from sklearn.metrics import pairwise
 # time
 import time
 from datetime import datetime
+import logging  # Add this
+import onnxruntime  # Add this
 
 # Load environment variables
 load_dotenv()
@@ -36,9 +38,53 @@ def retrieve_data(db_name):
     retrieve_df[['Name', 'Employee_id']] = retrieve_df['name_role'].apply(lambda x: x.split("@")).apply(pd.Series)
     return retrieve_df[['Name','Employee_id','facial_features']]
 
-# configure face analysis
-faceapp = FaceAnalysis(name='buffalo_sc',root='insightface_models', providers = ['CPUExecutionProvider'])
-faceapp.prepare(ctx_id = 0, det_size=(640,640), det_thresh = 0.5)
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def initialize_face_analysis():
+    # First, check available providers
+    available_providers = onnxruntime.get_available_providers()
+    logger.info(f"Available ONNX Runtime providers: {available_providers}")
+
+    # Check if models directory exists
+    models_dir = 'insightface_models'
+    if not os.path.exists(models_dir):
+        os.makedirs(models_dir)
+        logger.info(f"Created models directory: {models_dir}")
+
+    # Initialize with different provider configurations
+    try:
+        if 'CUDAExecutionProvider' in available_providers:
+            logger.info("Attempting to initialize with CUDA...")
+            faceapp = FaceAnalysis(
+                name='buffalo_sc',
+                root=models_dir,
+                providers=['CUDAExecutionProvider']
+            )
+        else:
+            logger.info("CUDA not available, falling back to CPU...")
+            faceapp = FaceAnalysis(
+                name='buffalo_sc',
+                root=models_dir,
+                providers=['CPUExecutionProvider']
+            )
+
+        # Prepare the model with lower detection threshold and size
+        faceapp.prepare(ctx_id=0, det_size=(320, 320), det_thresh=0.5)
+        logger.info("Face analysis initialized successfully")
+        return faceapp
+
+    except Exception as e:
+        logger.error(f"Error initializing FaceAnalysis: {str(e)}")
+        raise
+
+# Replace your current initialization with this
+try:
+    faceapp = initialize_face_analysis()
+except Exception as e:
+    logger.error(f"Failed to initialize face analysis: {str(e)}")
+    raise
 
 # ML Search Algorithm
 def ml_search_algorithm(dataframe,feature_column,test_vector,

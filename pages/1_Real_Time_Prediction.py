@@ -1,8 +1,7 @@
 import streamlit as st
-from Home import face_rec
-
 from streamlit_webrtc import webrtc_streamer
 import av
+from Home import face_rec
 import time
 
 st.set_page_config(page_title="Predictions",layout="centered")

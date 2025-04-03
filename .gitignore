@@ -1,5 +1,6 @@
 insightface_models/
 myenv/
+gpuenv/
 empenv/
 face_embedding.txt
 __pycache__/
