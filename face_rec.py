@@ -71,7 +71,7 @@ def initialize_face_analysis():
             )
 
         # Prepare the model with lower detection threshold and size
-        faceapp.prepare(ctx_id=0, det_size=(320, 320), det_thresh=0.5)
+        faceapp.prepare(ctx_id=0, det_size=(640, 640), det_thresh=0.5)
         logger.info("Face analysis initialized successfully")
         return faceapp
 
