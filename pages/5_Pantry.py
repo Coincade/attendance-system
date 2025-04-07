@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from Home import face_rec
 
 st.set_page_config(page_title="Smart Pantry Report", layout="wide")
-st.title("🍽️ Smart Pantry Time Summary (> 5 min only)")
+st.title("🍽️ Smart Pantry Time Summary")
 
 # Load logs from Redis
 def load_logs():
@@ -23,12 +23,12 @@ def parse_logs(logs):
     df["Date"] = df["Timestamp"].dt.date
     return df
 
-# Summarize sessions with > 5 min filter
-def summarize_sessions(df_logs, selected_date):
+# Function to calculate sessions (reusable)
+def generate_sessions(df_logs, selected_date, min_duration_minutes=None):
     df_logs = df_logs[df_logs["Date"] == selected_date]
     summary = []
 
-    min_gap = timedelta(minutes=3)
+    min_gap = timedelta(minutes=5)
     max_invisible = timedelta(hours=1)
 
     for emp_id, group in df_logs.groupby("Employee_id"):
@@ -59,7 +59,7 @@ def summarize_sessions(df_logs, selected_date):
         for start, end in sessions:
             if start and end:
                 duration = (end - start).total_seconds() / 60
-                if duration > 5:  # Only keep visits > 5 min
+                if min_duration_minutes is None or duration > min_duration_minutes:
                     summary.append({
                         "Employee_id": emp_id,
                         "Name": name,
@@ -73,22 +73,36 @@ def summarize_sessions(df_logs, selected_date):
 
 # UI
 selected_date = st.date_input("📅 Select Date", datetime.now().date())
+
+# Load + Process Logs
 logs = load_logs()
 df_logs = parse_logs(logs)
-df_summary = summarize_sessions(df_logs, selected_date)
 
-if df_summary.empty:
-    st.warning("No valid pantry sessions (longer than 5 minutes) found for this date.")
+# Section 1: Only >5 Min
+st.subheader("🧾 Valid Pantry Visits (>5 min)")
+summary_df = generate_sessions(df_logs, selected_date, min_duration_minutes=5)
+
+if summary_df.empty:
+    st.warning("No pantry sessions longer than 5 minutes were found for this date.")
 else:
-    st.subheader("🧾 Valid Pantry Visits (>5 min)")
-    st.dataframe(df_summary)
+    st.dataframe(summary_df)
 
-    # Total time per employee
-    st.subheader("⏳ Total Pantry Time per Employee")
-    total_df = df_summary.groupby(['Employee_id', 'Name'])['Duration (min)'].sum().reset_index()
+    st.subheader("⏳ Total Pantry Time per Employee (Filtered)")
+    total_df = summary_df.groupby(['Employee_id', 'Name'])['Duration (min)'].sum().reset_index()
     total_df.rename(columns={"Duration (min)": "Total Duration (min)"}, inplace=True)
     st.dataframe(total_df)
 
-    # CSV Export
-    st.download_button("📥 Download Visit Log", df_summary.to_csv(index=False), file_name=f"pantry_visits_{selected_date}.csv")
-    st.download_button("📥 Download Daily Totals", total_df.to_csv(index=False), file_name=f"pantry_totals_{selected_date}.csv")
+    st.download_button("📥 Download >5 Min Visits", summary_df.to_csv(index=False), file_name=f"pantry_visits_{selected_date}.csv")
+    st.download_button("📥 Download Total Durations", total_df.to_csv(index=False), file_name=f"pantry_totals_{selected_date}.csv")
+
+# Section 2: All Sessions
+st.divider()
+st.subheader("🔎 All Pantry Sessions (Internal Reference)")
+all_sessions_df = generate_sessions(df_logs, selected_date, min_duration_minutes=None)
+
+if all_sessions_df.empty:
+    st.warning("No pantry sessions found for this date.")
+else:
+    st.dataframe(all_sessions_df)
+
+    st.download_button("📥 Download All Sessions", all_sessions_df.to_csv(index=False), file_name=f"all_pantry_sessions_{selected_date}.csv")

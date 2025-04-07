@@ -2,45 +2,66 @@ import streamlit as st
 from Home import face_rec
 import cv2
 import numpy as np
-from streamlit_webrtc import webrtc_streamer
-import av
+from datetime import datetime
 
-st.set_page_config(page_title="Registration Form",layout="centered")
-st.subheader("Registration Form")
+st.set_page_config(page_title="Registration Form", layout="centered")
+st.subheader("📝 Registration Form")
 
-# Initialize the registration form
+# Initialize registration object
 register_form = face_rec.RegisterationForm()
 
-# 1. Collect Person name and role
-# form
-person_name = st.text_input(label="Name", placeholder="First Name and Last Name")
-employee_id = st.text_input(label="Employee ID", placeholder="Enter your employee ID")
-# role = st.selectbox(label="Select Your Role", options=('Employee', 'Admin'))
-#role = 'Employee'
+# Store webcam state
+if "camera_active" not in st.session_state:
+    st.session_state.camera_active = False
 
-# 2. Collect facial embedding of person
-def video_callback_function(frame):
-    img = frame.to_ndarray(format="bgr24")
-    reg_img, embedding = register_form.get_embedding(img)
-    # two step process
-    # 1st step: save data to local computer .txt
-    if embedding is not None:
-        with open('face_embedding.txt',mode='ab') as f:
-            np.savetxt(f,embedding)
-    # 2nd step: save data to redis db
-    return av.VideoFrame.from_ndarray(reg_img, format="bgr24")
+# Input fields
+person_name = st.text_input("👤 Name", placeholder="First Name and Last Name")
+employee_id = st.text_input("🆔 Employee ID", placeholder="Enter your unique ID")
 
-webrtc_streamer(key="registeration", video_frame_callback=video_callback_function)
+# Start/Stop camera buttons
+col1, col2 = st.columns(2)
+if col1.button("▶️ Start Camera"):
+    st.session_state.camera_active = True
+if col2.button("⏹️ Stop Camera"):
+    st.session_state.camera_active = False
 
-# 3. Save the data in Redis DB
+# Display message
+if st.session_state.camera_active:
+    st.info("Camera active. Look at the camera to collect face samples...")
 
-if st.button('Submit'):
-   return_value = register_form.save_data_in_redis_db(person_name, employee_id)
-   if return_value == True:
-       st.success(f'{person_name} Registered Successfully')
-   elif return_value == 'name_false':
-        st.error('Name cannot be empty')
-   elif return_value == 'file_false':
-        st.error('Please collect the facial embedding first')
-   else:
-        st.error('Something went wrong')
+    cap = cv2.VideoCapture(0)
+    stframe = st.empty()
+
+    while st.session_state.camera_active and cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        reg_img, embedding = register_form.get_embedding(frame_rgb)
+
+        if embedding is not None:
+            # Save embeddings to file
+            with open('face_embedding.txt', mode='ab') as f:
+                np.savetxt(f, embedding)
+
+        stframe.image(reg_img, channels="BGR")
+
+    cap.release()
+    st.success("Camera stopped.")
+
+# Save to Redis
+if st.button("✅ Submit Registration"):
+    return_value = register_form.save_data_in_redis_db(employee_id, person_name)
+
+    if return_value == True:
+        st.success(f"{person_name} registered successfully!")
+    elif return_value == "name_false":
+        st.error("Name cannot be empty.")
+    elif return_value == "employee_id_false":
+        st.error("Employee ID cannot be empty.")
+    elif return_value == "file_false":
+        st.error("No face embeddings collected. Please start the camera first.")
+    else:
+        st.error("Something went wrong.")
