@@ -16,18 +16,20 @@ def load_logs(name, end=-1):
     return decoded_logs
 
 # Convert raw logs to structured DataFrame
+# Convert raw logs to structured DataFrame
 def logs_to_dataframe(logs):
     data = []
     for log in logs:
         parts = log.split("@")
-        if len(parts) == 3:  # Expected format: employee_id@name@role@timestamp
-            name, employee_id, timestamp = parts
-            data.append([name, employee_id, timestamp])
+        if len(parts) >= 3:
+            name, emp_id, timestamp = parts[:3]
+            data.append([name, emp_id, timestamp])
     df = pd.DataFrame(data, columns=['Name', 'Employee_id', 'Timestamp'])
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'], errors='coerce')
+    df.dropna(subset=['Timestamp'], inplace=True)
     df.sort_values(by=['Employee_id', 'Timestamp'], inplace=True)
-    print (df)
     return df
+
 
 # Calculate total working hours from logs
 def calculate_total_working_hours(df_logs):
@@ -37,10 +39,10 @@ def calculate_total_working_hours(df_logs):
     grouped = df_logs.groupby(['Employee_id', 'Date'])
 
     for (employee_id, date), group in grouped:
-        group = group.sort_values(by='Timestamp').reset_index(drop=True)
-        name = group.loc[0, 'Name']
+        group = group.sort_values('Timestamp').reset_index(drop=True)
+        name = group.iloc[0]['Name']
         in_time = group.iloc[0]['Timestamp']
-        out_time = group.iloc[-1]['Timestamp']
+        out_time = group.iloc[-1]['Timestamp']  # 🟢 last time seen — even 1 sec later
         duration = out_time - in_time
 
         summary.append({
@@ -49,7 +51,8 @@ def calculate_total_working_hours(df_logs):
             'Date': date,
             'First Log (IN)': in_time,
             'Last Log (OUT)': out_time,
-            'Total Hours': round(duration.total_seconds() / 3600, 2)
+            'Total Hours': round(duration.total_seconds() / 3600, 2),
+            'Total Minutes': round(duration.total_seconds() / 60, 2)
         })
 
     return pd.DataFrame(summary)
